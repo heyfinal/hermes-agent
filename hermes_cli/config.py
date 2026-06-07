@@ -2052,6 +2052,36 @@ DEFAULT_CONFIG = {
         "dispatch_stale_timeout_seconds": 14400,
     },
 
+    # Orchestrator — Agent Breakout: dynamic multi-agent team assembly
+    # and evolution for complex, multi-domain projects.
+    "orchestrator": {
+        "enabled": True,                     # Master toggle
+        "default_team_size": 3,              # Agents per team if not specified
+        "evolution": {
+            "enabled": True,
+            "interval": "weekly",            # daily | weekly | monthly
+            "day": 0,                        # 0=Sunday (weekly) or 1-31 (monthly)
+            "time": "03:00",                 # UTC time (HH:MM)
+            "auto_update_profiles": True,    # Auto-patch agent prompts
+            "notify_on_change": True,        # Notify when evolution changes profiles
+        },
+        "subagent": {
+            "default_model": "",             # Empty = inherit parent model
+            "default_max_turns": 30,
+            "default_timeout": 600,
+            "inherit_tools": True,
+            "restrict_by_role": True,        # Only load toolsets from agent profile
+        },
+        "artifacts": {
+            "keep_last": 10,
+            "max_size_mb": 100,
+        },
+        "logging": {
+            "level": "info",
+            "retain_runs": 50,
+        },
+    },
+
     # execute_code settings — controls the tool used for programmatic tool calls.
     "code_execution": {
         # Execution mode:
