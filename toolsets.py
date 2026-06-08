@@ -54,6 +54,8 @@ _HERMES_CORE_TOOLS = [
     "clarify",
     # Code execution + delegation
     "execute_code", "delegate_task",
+    # Orchestrator — multi-agent team assembly (gated on orchestrator.enabled)
+    "orchestrate_team",
     # Cronjob management
     "cronjob",
     # Cross-platform messaging (gated on gateway running via check_fn)
@@ -271,6 +273,17 @@ TOOLSETS = {
             "kanban_create", "kanban_link",
             "kanban_unblock",
         ],
+        "includes": [],
+    },
+
+    "orchestrator": {
+        "description": (
+            "Multi-agent team assembly and orchestration. Lets the agent "
+            "spawn a team of specialized subagents, each with domain-specific "
+            "context prompts, toolsets, and output contracts. Includes the "
+            "evolution cycle for periodic knowledge refresh."
+        ),
+        "tools": ["orchestrate_team"],
         "includes": [],
     },
 

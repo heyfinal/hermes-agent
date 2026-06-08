@@ -6581,6 +6581,13 @@ def cmd_kanban(args):
     return kanban_command(args)
 
 
+def cmd_orchestrator(args):
+    """Orchestrator — dynamic multi-agent team assembly."""
+    from hermes_cli.orchestrator import orchestrator_command
+
+    return orchestrator_command(args)
+
+
 def cmd_hooks(args):
     """Shell-hook inspection and management."""
     from hermes_cli.hooks import hooks_command
@@ -14093,6 +14100,59 @@ Examples:
     )
     from hermes_cli.checkpoints import register_cli as _register_checkpoints_cli
     _register_checkpoints_cli(checkpoints_parser)
+
+    # =========================================================================
+    # orchestrator command — Agent Breakout multi-agent team assembly
+    # =========================================================================
+    orchestrator_parser = subparsers.add_parser(
+        "orchestrator",
+        aliases=["orch", "agents"],
+        help="Manage agent profiles, teams, and evolution",
+        description="Agent Breakout: dynamic multi-agent orchestration. "
+        "Manage agent profiles, assemble teams, run evolution cycles.",
+    )
+    orchestrator_sub = orchestrator_parser.add_subparsers(dest="orchestrator_command")
+
+    # --- orchestrator status (default) ---
+    orchestrator_sub.add_parser("status", help="Show orchestrator status overview")
+
+    # --- orchestrator agent ---
+    agent_parser = orchestrator_sub.add_parser(
+        "agent", help="Manage agent profiles"
+    )
+    agent_sub = agent_parser.add_subparsers(dest="orchestrator_agent_action")
+
+    agent_sub.add_parser("list", help="List all agent profiles")
+    agent_show = agent_sub.add_parser("show", help="Show an agent profile")
+    agent_show.add_argument("name", help="Agent name")
+    agent_sub.add_parser("create", help="Create a new agent profile (interactive)")
+    agent_edit = agent_sub.add_parser("edit", help="Edit an agent profile")
+    agent_edit.add_argument("name", help="Agent name")
+    agent_rm = agent_sub.add_parser(
+        "remove", aliases=["rm"], help="Remove an agent profile"
+    )
+    agent_rm.add_argument("name", help="Agent name")
+    agent_tog = agent_sub.add_parser("toggle", help="Enable/disable an agent")
+    agent_tog.add_argument("name", help="Agent name")
+
+    # --- orchestrator team ---
+    team_parser = orchestrator_sub.add_parser(
+        "team", help="Assemble and manage teams"
+    )
+    team_sub = team_parser.add_subparsers(dest="orchestrator_team_action")
+    team_sub.add_parser("assemble", help="Interactive team builder")
+    team_sub.add_parser("history", help="Show past team runs")
+
+    # --- orchestrator evolution ---
+    evo_parser = orchestrator_sub.add_parser(
+        "evolution", aliases=["evo"], help="Manage evolution cycle"
+    )
+    evo_sub = evo_parser.add_subparsers(dest="orchestrator_evolution_action")
+    evo_sub.add_parser("run", help="Trigger evolution cycle now")
+    evo_sub.add_parser("status", help="Show last evolution report")
+    evo_sub.add_parser("config", help="Show evolution configuration")
+
+    orchestrator_parser.set_defaults(func=cmd_orchestrator)
 
     # =========================================================================
     # import command
