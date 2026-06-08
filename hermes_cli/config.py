@@ -2056,6 +2056,7 @@ DEFAULT_CONFIG = {
     # and evolution for complex, multi-domain projects.
     "orchestrator": {
         "enabled": True,                     # Master toggle
+        "dynamic_agents": True,              # Auto-create new agents when no match exists
         "default_team_size": 3,              # Agents per team if not specified
         "evolution": {
             "enabled": True,

@@ -193,6 +193,37 @@ def _save_run(
         logger.warning("Failed to save run to orchestrator.db: %s", exc)
 
 
+def _write_agent_yaml_file(name: str, data: Dict[str, Any]) -> None:
+    """Write an agent profile YAML file to disk."""
+    agents_dir = _get_agents_dir()
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    path = agents_dir / f"{name}.yaml"
+    lines = [
+        f"name: {name}",
+        f"label: {data.get('label', name)}",
+        f"description: {data.get('description', '')}",
+        f"enabled: true",
+        "",
+        "prompt: |",
+    ]
+    for line in data.get("prompt", "").split("\n"):
+        lines.append(f"  {line}" if line.strip() else "  ")
+    lines.append("")
+    lines.append("toolsets:")
+    for t in data.get("toolsets", []):
+        lines.append(f'  - "{t}"')
+    lines.append(f'model: "{data.get("model", "")}"')
+    lines.append(f"max_turns: {data.get('max_turns', 30)}")
+    lines.append("")
+    lines.append("quality_gates:")
+    for g in data.get("quality_gates", []):
+        lines.append(f'  - "{g}"')
+    lines.append("")
+    lines.append(f"version: {data.get('version', 1)}")
+    lines.append(f"last_updated: {time.strftime('%Y-%m-%d')}")
+    path.write_text("\n".join(lines) + "\n")
+
+
 # ---------------------------------------------------------------------------
 # Tool registration
 # ---------------------------------------------------------------------------
@@ -208,7 +239,7 @@ def check_requirements() -> bool:
         return True  # Default to enabled
 
 
-def orchestrate_team(goal: str, context: str = "", agents: str = "") -> str:
+def orchestrate_team(goal: str, context: str = "", agents: str = "", dynamic_agents: str = "") -> str:
     """
     Assemble a specialized agent team for a complex project.
 
@@ -225,6 +256,10 @@ def orchestrate_team(goal: str, context: str = "", agents: str = "") -> str:
         agents: Comma-separated agent names to explicitly select. If empty,
                 agents are auto-selected from the goal analysis. Example:
                 "architect,software-engineer,firmware-engineer,network-engineer"
+        dynamic_agents: "true" to auto-create new agent profiles when the
+                goal mentions domains not covered by any existing agent.
+                Defaults to "auto" which reads orchestrator.dynamic_agents
+                from config.yaml. "false" to disable.
 
     Returns:
         JSON with team composition, run ID, agent outputs, and integration summary.
@@ -236,6 +271,18 @@ def orchestrate_team(goal: str, context: str = "", agents: str = "") -> str:
 
     # Read available agents
     available = _list_enabled_agents()
+    goal_lower = goal.lower()
+
+    # Resolve dynamic_agents setting
+    dynamic = dynamic_agents.lower() if dynamic_agents else ""
+    if dynamic not in ("true", "false"):
+        try:
+            from hermes_cli.config import load_config
+            config = load_config()
+            dynamic = "true" if config.get("orchestrator", {}).get("dynamic_agents", True) else "false"
+        except Exception:
+            dynamic = "true"
+    should_dynamic = dynamic == "true"
 
     # Select team
     if agents:
@@ -247,6 +294,85 @@ def orchestrate_team(goal: str, context: str = "", agents: str = "") -> str:
             a["name"] for a in available if a["name"] != "architect"
         )
         team_names = _analyze_project(goal, available)
+
+    # Dynamic agent creation: detect uncovered domains
+    created_agents = []
+    if should_dynamic and not agents:
+        existing_names = {a["name"] for a in available}
+        # Domain keywords NOT covered by existing agents
+        uncovered_domains = {
+            "lora": "LoRa Radio Engineer",
+            "ble": "Bluetooth Low Energy Engineer",
+            "bluetooth": "Bluetooth Low Energy Engineer",
+            "zigbee": "Zigbee Protocol Engineer",
+            "lte": "Cellular / LTE Engineer",
+            "5g": "Cellular / 5G Engineer",
+            "gnss": "GNSS / GPS Engineer",
+            "gps": "GNSS / GPS Engineer",
+            "rfid": "RFID Engineer",
+            "nfc": "NFC Engineer",
+            "satellite": "Satellite Communications Engineer",
+            "sdr": "Software Defined Radio Engineer",
+            "radar": "Radar Systems Engineer",
+            "lidar": "LiDAR Engineer",
+            "computer vision": "Computer Vision Engineer",
+            "object detection": "Computer Vision Engineer",
+            "yolo": "Computer Vision Engineer",
+            "audio": "Audio / DSP Engineer",
+            "speech": "Speech / Audio Engineer",
+            "motor": "Motor Control Engineer",
+            "actuator": "Actuator Control Engineer",
+            "ros": "ROS / Robotics Engineer",
+            "robotics": "ROS / Robotics Engineer",
+            "fpga": "FPGA Engineer",
+            "verilog": "FPGA / Verilog Engineer",
+            "vhdl": "FPGA / VHDL Engineer",
+            "blockchain": "Blockchain Engineer",
+            "smart contract": "Smart Contract Engineer",
+            "solidity": "Solidity / EVM Engineer",
+            "quantum": "Quantum Computing Engineer",
+            "game": "Game Developer",
+            "unity": "Unity Developer",
+            "unreal": "Unreal Engine Developer",
+            "webgl": "WebGL / Graphics Engineer",
+            "opengl": "OpenGL / Graphics Engineer",
+            "metal": "Metal / GPU Engineer",
+            "cuda": "CUDA / GPU Engineer",
+        }
+
+        for keyword, label in uncovered_domains.items():
+            if keyword in goal_lower:
+                agent_name = keyword.replace(" ", "-").replace("/", "-")
+                if agent_name not in existing_names:
+                    profile = {
+                        "name": agent_name,
+                        "label": label,
+                        "description": f"Auto-created {label} for project",
+                        "prompt": (
+                            f"You are the {label}. Your role is to handle all {keyword}-related "
+                            f"aspects of the project. Deliver working implementations, "
+                            f"documentation, and test coverage. Follow best practices in "
+                            f"your domain.\n\n"
+                            f"Deliverables:\n"
+                            f"1. Working implementation\n"
+                            f"2. Tests\n"
+                            f"3. Documentation\n"
+                            f"4. Build/run instructions"
+                        ),
+                        "toolsets": ["terminal", "file", "search", "web"],
+                        "model": "",
+                        "max_turns": 30,
+                        "quality_gates": [
+                            "Implementation compiles/runs without errors",
+                            "Edge cases handled",
+                            "Documentation provided",
+                        ],
+                        "version": 1,
+                    }
+                    _write_agent_yaml_file(agent_name, profile)
+                    created_agents.append(agent_name)
+                    existing_names.add(agent_name)
+                    team_names.append(agent_name)
 
     if not team_names:
         result = {
@@ -337,6 +463,7 @@ def orchestrate_team(goal: str, context: str = "", agents: str = "") -> str:
         "team": team_names,
         "elapsed_seconds": round(elapsed, 1),
         "summary": summary,
+        "created_agents": created_agents,
         "agent_outputs": agent_outputs,
     }
     return json.dumps(result)
